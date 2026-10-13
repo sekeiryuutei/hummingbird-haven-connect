@@ -32,8 +32,10 @@ function Administration() {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Néctar e higiene");
   const [amount, setAmount] = useState("");
-  const heroInputRef = useRef<HTMLInputElement>(null);
+  const modalPhotoInputRef = useRef<HTMLInputElement>(null);
   const birdFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const isEditingExisting = state.birds.some((b) => b.id === edit?.id);
 
   async function photo(file?: File) {
     if (!file) return;
@@ -54,17 +56,6 @@ function Administration() {
         birds: s.birds.map((b) => (b.id === birdId ? { ...b, image } : b)),
       }));
       notify(`Fotografía de ${birdName} actualizada.`);
-    } catch (e) {
-      notify(e instanceof Error ? e.message : "No se pudo leer la foto.");
-    }
-  }
-
-  async function updateHeroPhoto(file?: File) {
-    if (!file) return;
-    try {
-      const heroImage = await readPhoto(file);
-      update((s) => ({ ...s, heroImage }));
-      notify("Foto principal de portada actualizada.");
     } catch (e) {
       notify(e instanceof Error ? e.message : "No se pudo leer la foto.");
     }
@@ -99,7 +90,7 @@ function Administration() {
               id: crypto.randomUUID(),
               name: "",
               scientific: "",
-              image: sylph,
+              image: "",
               sponsors: 0,
               description: "",
               health: "Saludable",
@@ -113,20 +104,6 @@ function Administration() {
         <Button variant="outline" onClick={() => setExpense(true)}>
           <Receipt />
           Registrar gasto
-        </Button>
-        <input
-          ref={heroInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            updateHeroPhoto(e.target.files?.[0]);
-            e.target.value = "";
-          }}
-        />
-        <Button variant="outline" onClick={() => heroInputRef.current?.click()}>
-          <Camera />
-          Cambiar foto de portada
         </Button>
       </div>
       <div className="admin-table">
@@ -203,9 +180,7 @@ function Administration() {
         }}
       >
         <DialogContent className="dialog-body">
-          <DialogTitle>
-            {state.birds.some((b) => b.id === edit?.id) ? "Editar especie" : "Nueva especie"}
-          </DialogTitle>
+          <DialogTitle>{isEditingExisting ? "Editar especie" : "Nueva especie"}</DialogTitle>
           <DialogDescription>
             Los cambios se reflejarán en el catálogo y la comunidad.
           </DialogDescription>
@@ -214,20 +189,69 @@ function Administration() {
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!edit.name.trim() || !edit.scientific.trim()) return;
+                const finalBird: Bird = {
+                  ...edit,
+                  image: edit.image || sylph,
+                };
                 update((s) => ({
                   ...s,
-                  birds: s.birds.some((b) => b.id === edit.id)
-                    ? s.birds.map((b) => (b.id === edit.id ? edit : b))
-                    : [...s.birds, edit],
+                  birds: s.birds.some((b) => b.id === finalBird.id)
+                    ? s.birds.map((b) => (b.id === finalBird.id ? finalBird : b))
+                    : [...s.birds, finalBird],
                 }));
                 setEdit(null);
                 notify("Especie guardada.");
               }}
             >
+              <div className="field">
+                <span>Fotografía del colibrí</span>
+                <input
+                  ref={modalPhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    photo(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                {edit.image ? (
+                  <div className="mt-2">
+                    <img
+                      className="upload-preview"
+                      src={edit.image}
+                      alt={edit.name || "Vista previa de la especie"}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => modalPhotoInputRef.current?.click()}
+                    >
+                      <Camera size={15} />
+                      Cambiar fotografía
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => modalPhotoInputRef.current?.click()}
+                    className="mt-2 flex w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-input bg-muted/40 px-4 py-6 text-center text-xs text-muted-foreground transition-colors hover:bg-muted"
+                  >
+                    <Camera size={24} className="text-primary" />
+                    <span className="font-semibold text-foreground">
+                      Haz clic aquí para subir la foto del colibrí
+                    </span>
+                    <span>JPG, PNG o WebP (máx. 8 MB)</span>
+                  </button>
+                )}
+              </div>
               <label className="field">
                 Nombre común
                 <input
                   required
+                  placeholder="Ej. Esmeralda Occidental"
                   value={edit.name}
                   onChange={(e) => setEdit({ ...edit, name: e.target.value })}
                 />
@@ -236,6 +260,7 @@ function Administration() {
                 Nombre científico
                 <input
                   required
+                  placeholder="Ej. Chlorostilbon melanorhynchus"
                   value={edit.scientific}
                   onChange={(e) => setEdit({ ...edit, scientific: e.target.value })}
                 />
@@ -244,6 +269,7 @@ function Administration() {
                 Descripción / novedades
                 <textarea
                   required
+                  placeholder="Describe las características de este colibrí en el bosque..."
                   value={edit.description}
                   onChange={(e) => setEdit({ ...edit, description: e.target.value })}
                 />
@@ -283,12 +309,7 @@ function Administration() {
                   onChange={(e) => setEdit({ ...edit, conservation: e.target.value })}
                 />
               </label>
-              <label className="field">
-                Fotografía
-                <input type="file" accept="image/*" onChange={(e) => photo(e.target.files?.[0])} />
-              </label>
-              <img className="upload-preview" src={edit.image} alt="Foto de la especie" />
-              <Button type="submit">
+              <Button type="submit" className="w-full">
                 <Save />
                 Guardar especie
               </Button>

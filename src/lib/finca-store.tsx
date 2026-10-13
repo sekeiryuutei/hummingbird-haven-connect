@@ -27,6 +27,7 @@ export type Post = {
 };
 export type Expense = { id: string; name: string; category: string; amount: number; date: string };
 type State = {
+  heroImage: string;
   birds: Bird[];
   payments: Payment[];
   posts: Post[];
@@ -36,6 +37,7 @@ type State = {
   signedIn: boolean;
 };
 const initial: State = {
+  heroImage: sylph,
   birds: [
     {
       id: "silfo",
@@ -138,7 +140,14 @@ export function FincaProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("finca-alejandria-v1");
-      if (saved) setState(JSON.parse(saved));
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<State>;
+        setState((prev) => ({
+          ...prev,
+          ...parsed,
+          heroImage: parsed.heroImage || prev.heroImage,
+        }));
+      }
     } catch {
       setMessage("No fue posible recuperar los datos locales.");
     }

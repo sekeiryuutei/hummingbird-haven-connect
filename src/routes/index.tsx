@@ -1,9 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef } from "react";
-import { MapPin, Heart, ArrowRight, Leaf, Bird, Users, ShieldCheck, Trees } from "lucide-react";
+import {
+  MapPin,
+  Heart,
+  ArrowRight,
+  Leaf,
+  Bird,
+  Users,
+  ShieldCheck,
+  Trees,
+  Camera,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BirdCard } from "@/components/bird-card";
-import { useFinca, sylph } from "@/lib/finca-store";
+import { useFinca, sylph, readPhoto } from "@/lib/finca-store";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -25,21 +35,32 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 function Index() {
-  const { state } = useFinca();
+  const { state, update, admin, notify } = useFinca();
   const [filter, setFilter] = useState("all");
   const section = useRef<HTMLElement>(null);
+  const heroInputRef = useRef<HTMLInputElement>(null);
   const birds = state.birds.filter(
     (b) =>
       filter === "all" ||
       (filter === "available" ? b.sponsors < 10 : state.favorites.includes(b.id)),
   );
   const sponsors = state.birds.reduce((sum, b) => sum + b.sponsors, 0);
+  async function changeHeroPhoto(file?: File) {
+    if (!file) return;
+    try {
+      const heroImage = await readPhoto(file);
+      update((s) => ({ ...s, heroImage }));
+      notify("Foto de portada actualizada.");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "No se pudo cambiar la foto de portada.");
+    }
+  }
   return (
     <>
       <section className="hero">
         <img
           className="hero-image"
-          src={sylph}
+          src={state.heroImage || sylph}
           alt="Silfo Celeste volando entre las flores del bosque de niebla"
           width={1536}
           height={1024}
@@ -73,6 +94,28 @@ function Index() {
             <Button variant="heroOutline" size="lg" asChild>
               <Link to="/transparencia">Conoce tu impacto</Link>
             </Button>
+            {admin && (
+              <>
+                <input
+                  ref={heroInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    changeHeroPhoto(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  variant="heroOutline"
+                  size="lg"
+                  onClick={() => heroInputRef.current?.click()}
+                >
+                  <Camera size={15} />
+                  Cambiar portada
+                </Button>
+              </>
+            )}
           </div>
         </div>
         <div className="hero-location">

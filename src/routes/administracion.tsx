@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { ShieldCheck, Plus, Pencil, Save, Receipt } from "lucide-react";
+import { useState, useRef } from "react";
+import { ShieldCheck, Plus, Pencil, Save, Receipt, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useFinca, readPhoto, today, sylph, money, type Bird } from "@/lib/finca-store";
@@ -32,6 +32,9 @@ function Administration() {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Néctar e higiene");
   const [amount, setAmount] = useState("");
+  const heroInputRef = useRef<HTMLInputElement>(null);
+  const birdFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
   async function photo(file?: File) {
     if (!file) return;
     try {
@@ -41,6 +44,32 @@ function Administration() {
       notify(e instanceof Error ? e.message : "No se pudo leer la foto.");
     }
   }
+
+  async function quickBirdPhoto(birdId: string, birdName: string, file?: File) {
+    if (!file) return;
+    try {
+      const image = await readPhoto(file);
+      update((s) => ({
+        ...s,
+        birds: s.birds.map((b) => (b.id === birdId ? { ...b, image } : b)),
+      }));
+      notify(`Fotografía de ${birdName} actualizada.`);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "No se pudo leer la foto.");
+    }
+  }
+
+  async function updateHeroPhoto(file?: File) {
+    if (!file) return;
+    try {
+      const heroImage = await readPhoto(file);
+      update((s) => ({ ...s, heroImage }));
+      notify("Foto principal de portada actualizada.");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "No se pudo leer la foto.");
+    }
+  }
+
   if (!admin)
     return (
       <main className="content">
@@ -85,6 +114,20 @@ function Administration() {
           <Receipt />
           Registrar gasto
         </Button>
+        <input
+          ref={heroInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            updateHeroPhoto(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+        <Button variant="outline" onClick={() => heroInputRef.current?.click()}>
+          <Camera />
+          Cambiar foto de portada
+        </Button>
       </div>
       <div className="admin-table">
         {state.birds.map((b) => (
@@ -99,14 +142,39 @@ function Administration() {
               </div>
             </div>
             <span>{b.sponsors}/10</span>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label={`Editar ${b.name}`}
-              onClick={() => setEdit({ ...b })}
-            >
-              <Pencil size={15} />
-            </Button>
+            <div className="flex items-center gap-2">
+              <input
+                ref={(el) => {
+                  birdFileRefs.current[b.id] = el;
+                }}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  quickBirdPhoto(b.id, b.name, e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                title={`Cambiar foto de ${b.name}`}
+                aria-label={`Cambiar foto de ${b.name}`}
+                onClick={() => birdFileRefs.current[b.id]?.click()}
+              >
+                <Camera size={14} />
+                <span className="hidden sm:inline">Cambiar foto</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                title={`Editar ${b.name}`}
+                aria-label={`Editar ${b.name}`}
+                onClick={() => setEdit({ ...b })}
+              >
+                <Pencil size={15} />
+              </Button>
+            </div>
           </div>
         ))}
       </div>

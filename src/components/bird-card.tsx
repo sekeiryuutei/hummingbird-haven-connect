@@ -1,19 +1,33 @@
-import { useState } from "react";
-import { Heart, ArrowRight, ShieldCheck, LockKeyhole, CheckCircle2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { Heart, ArrowRight, ShieldCheck, LockKeyhole, CheckCircle2, Camera } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useFinca, money, today, type Bird } from "@/lib/finca-store";
+import { useFinca, money, today, readPhoto, type Bird } from "@/lib/finca-store";
 export function BirdCard({ bird, owned = false }: { bird: Bird; owned?: boolean }) {
-  const { state, update, notify } = useFinca();
+  const { state, update, admin, notify } = useFinca();
   const [amount, setAmount] = useState(30000);
   const [custom, setCustom] = useState(false);
   const [checkout, setCheckout] = useState(false);
   const [method, setMethod] = useState("Wompi");
   const [success, setSuccess] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const active = state.payments.some((p) => p.birdId === bird.id);
   const full = bird.sponsors >= 10;
   const favorite = state.favorites.includes(bird.id);
+  async function changeBirdPhoto(file?: File) {
+    if (!file) return;
+    try {
+      const image = await readPhoto(file);
+      update((s) => ({
+        ...s,
+        birds: s.birds.map((b) => (b.id === bird.id ? { ...b, image } : b)),
+      }));
+      notify(`Fotografía de ${bird.name} actualizada.`);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "No se pudo actualizar la fotografía.");
+    }
+  }
   function pay() {
     if (!state.signedIn) {
       notify("Inicia tu sesión de demostración desde Mi perfil.");
@@ -47,6 +61,29 @@ export function BirdCard({ bird, owned = false }: { bird: Bird; owned?: boolean 
           {full ? <LockKeyhole size={10} /> : <LeafIcon />}
           {full ? "Cupos llenos" : "Apadrinamiento disponible"}
         </span>
+        {admin && (
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                changeBirdPhoto(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              variant="photo"
+              size="sm"
+              className="absolute bottom-3 right-3 h-7 gap-1.5 rounded-full px-2.5 text-[10px] font-bold shadow-md"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Camera size={12} />
+              Cambiar foto
+            </Button>
+          </>
+        )}
         <Button
           variant="photo"
           size="icon"
